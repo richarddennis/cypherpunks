@@ -1,4 +1,3 @@
-#Richard Dennis Steg tool
 import Image
 import os
 import re
@@ -6,99 +5,64 @@ import io
 import numpy
 from itertools import izip_longest
 from itertools import chain
+import sys
 
-codes = (
-	(146, 28, 135) #Purple
-	)
-
-def conversion_png_ppm(png_file):
-	#Converts a png image to pgm 
-	print "Taking image to be inputted, and converting it to ppm"
-	im = Image.open(png_file)
-	im = im.convert('RGB')
-	im.save('Portsmouth.ppm')
-
-	file_size_of_pgm = os.stat('Portsmouth.ppm').st_size #Gets the file size of the image in byte
-
-	#Make sure we have enough space to add the data, if under 5mb ? then close
-	if file_size_of_pgm < 5000000:
-		print "PGM file size is too small exiting now"
-		sys.exit("System exiting")
-
-def reading_ppm(ppm_file):
-	# Open the PPM file and process the 3 first lines (HEADER
-	file_name = ppm_file
+def reading_ppm(file_name):
 	f = open (file_name)
-	color = f.readline().splitlines()
+	setting = f.readline().splitlines()
+	comment = f.readline().splitlines()
 	size_x, size_y = f.readline().split()
-	max = f.readline().splitlines()
-
-	print "\nGrid size"
-	print "x", size_x
-	print "y", size_y
-
-	#Makes sure it is a PPM image
-	assert color == ['P6'] #P6 format of the same image will store each color component of each pixel with one byte (thus three bytes per pixel) in the order Red, Green then Blue
-
-	#Reads the rest of the image
-	data = f.read().split()
-
-	# Making sure the data has all RGB and not corrupted
-	# print len(data)
-	# print len(data) / 3 
-
-	return data, size_x, size_y
+	pixel_max = f.readline().splitlines()
+	orig_data = f.read().split()		
+	return size_x,size_y,pixel_max, orig_data
 
 def grouper(iterable, n, fillvalue=None):
     args = [iter(iterable)] * n
     return izip_longest(fillvalue=fillvalue, *args)	
 
-def value_check(pixels):
-	if any(146 in p for p in pixels):
-		print "Purple"
-	else:
-		print "no purple"
+def hidding_data_to_image(text_to_be_hidden_binary, data):
+	print "test"
+	#Not bothering converting the RGB to binary, as the addition of 1 to 200 etc  = 201 same as binary, quicker this way
+	#Green is 20 200 20
+	x = 0
+	for i,v in enumerate(data) :
+		if x < len(text_to_be_hidden_binary):
+			if v==20 or v==200 :
+				data[i]+= int(text_to_be_hidden_binary[x])
+				x = x + 1																			
+	return data
 
 
-def value_check_editted(pixels):
-	if any(147 in p for p in pixels):
-		print "Purple has been changed"
-	else:
-		print "no purple"
+def writting_ppm(ppm_file,size_x,size_y,maxval,data):
+    colour = 'P3'
 
-#########################################################################################
-#########################################################################################
-#########################################################################################
-#########################################################################################
+    # leave data as a list
+    maxval =  max(maxval) # use max to get the max int in a list
+    with open(ppm_file, "w") as text_file:
+        text_file.write(colour + "\n" + "\n" +str(size_x) + " " + str(size_y) + "\n" + str(maxval) +"\n")
+        for each in data:
+            text_file.write(str(each)+'\n')
+
 
 #Text to be hidden within the image 
-text_to_be_hidden = "this is a test"
-
+text_to_be_hidden = "this is a test for example i want to see how much data can be added and it seems like a lot can be for example cypherwy2vflxo3qdotonion "
 #Converts text to binary (NO spaces)
 text_to_be_hidden_binary = ''.join(format(ord(x), 'b') for x in text_to_be_hidden)
 
-#User info
-print "text to be hidden:", text_to_be_hidden
-print "text to be hidden in binary:", text_to_be_hidden_binary
+L = list(text_to_be_hidden_binary)
 
-conversion_png_ppm('Portsmouth.png')
-data, x, y = reading_ppm ('Portsmouth.ppm') 
+print type(text_to_be_hidden_binary)
+print text_to_be_hidden_binary
 
-pixels = grouper(map(ord, data[0]), 3)
+ppm_file = "portsmouth_origtext.ppm"
 
-value_check(pixels)
+size_x,size_y,pixel_max, orig_data = reading_ppm(ppm_file)
 
-#Pixel locations for last circle
-start = 2148 #Start on X
-end = 3505 #End on X
-#Y not required ?
+data = map(int, orig_data)
 
-# print len(list(pixels))
+assert len(data)/3 == (int(size_x) * int(size_y)) #Checks all values have been extracted
+# value_check_editted(data)
 
+hidding_data_to_image(text_to_be_hidden_binary, data)
 
-pixels = list(pixels)
-for pixel in pixels[2148:3505]:
-  if pixel[0] == 146:
-    pixel[0] + 1
-
-value_check_editted(pixels)
+writting_ppm("portsmouth_steg.ppm",size_x,size_y,pixel_max, data)
